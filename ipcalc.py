@@ -1,5 +1,10 @@
 #!/usr/bin/python3
 
+# Rule #1 : string as an input, string as an output.
+
+DEFAULT_NETWORK_ADDR = "192.168.1.1"
+DEFAULT_NETWORK_MASK = "24"
+
 import argparse
 import re
 import sys
@@ -22,6 +27,14 @@ def dotted_decimal_to_binary(address: str) -> str:
     result = ""
     for byte in address.split("."):
         result += bin(int(byte))[2:].rjust(8, "0") # remove '0b' and stuff with '0' for a full 8-bit representation
+    return result
+
+def dotted_decimal_to_dotted_binary(address: str) -> str:
+    result = []
+    for byte in address.split("."):
+        byte = bin(int(byte))[2:].rjust(8, "0") # remove '0b' and stuff with '0' for a full 8-bit representation
+        result.append(byte)
+    result = ".".join(result)
     return result
 
 def binary_to_dotted_decimal(bitstring: str) -> str:
@@ -99,8 +112,8 @@ def network_max(address: str, subnet_mask: str, binary: bool = False) -> str:
     result = network_broadcast(address, subnet_mask, binary=True)[:-1] + "0"
     return result if binary else binary_to_dotted_decimal(result)
 
-def network_hosts(cidr: str):
-    return 2 ** ( 32 - int(cidr) ) - 2
+def network_hosts(prefix_length: str) -> str:
+    return str(2 ** ( 32 - int(prefix_length) ) - 2)
 
 class Network():
     def __init__(self, address: str, subnet_mask: str):
@@ -111,7 +124,7 @@ class Network():
 
         self.address    = None
         self.mask       = None
-        self.cidr       = None
+        self.length     = None
         self.wildcard   = None
         self.min        = None
         self.max        = None
@@ -122,7 +135,7 @@ class Network():
         self.usage      = None
 
         self.__set_mask(subnet_mask)
-        self.__set_cidr(subnet_mask)
+        self.__set_length(subnet_mask)
         self.__set_wildcard()
         self.__set_address(address)
         self.__set_broadcast()
@@ -141,11 +154,11 @@ class Network():
         else:
             self.mask = cidr_to_dotted_decimal(subnet_mask)
         
-    def __set_cidr(self, subnet_mask):
+    def __set_length(self, subnet_mask):
         if re.match(REGEX_NETMASK_CIDR, subnet_mask):
-            self.cidr = subnet_mask
+            self.length = subnet_mask
         else:
-            self.cidr = dotted_decimal_to_cidr(subnet_mask)
+            self.length = dotted_decimal_to_cidr(subnet_mask)
         
     def __set_wildcard(self):
         self.wildcard = wildcard(dotted_decimal_to_binary(self.mask))
@@ -160,7 +173,7 @@ class Network():
         self.max = network_max(self.address, self.mask)
         
     def __set_hosts(self):
-        self.hosts = network_hosts(self.cidr)
+        self.hosts = network_hosts(self.length)
         
     def __set_classful(self):
         leading_bits = dotted_decimal_to_binary(self.address)
@@ -196,49 +209,74 @@ class Network():
         print("self:", network_address(self.address, subnet_mask))
         print("othr:", network_address(address, subnet_mask))
         if network_address(self.address, subnet_mask) == network_address(address, subnet_mask)\
-        and int(self.cidr) >= int(dotted_decimal_to_cidr(subnet_mask)):
+        and int(self.length) >= int(dotted_decimal_to_cidr(subnet_mask)):
             return True
         else:
             return False
+        
+def display_network_info(addr: str, mask: str):
+    network = Network(addr, mask)
+    attributes = [
+        ["address", network.address.ljust(15), dotted_decimal_to_dotted_binary(network.address)],
+        ["min", network.min.ljust(15), dotted_decimal_to_dotted_binary(network.min)],
+        ["max", network.max.ljust(15), dotted_decimal_to_dotted_binary(network.max)],
+        ["broadcast", network.broadcast.ljust(15), dotted_decimal_to_dotted_binary(network.broadcast)],
+        ["mask", network.mask.ljust(15), dotted_decimal_to_dotted_binary(network.mask)],
+        ["wildcard", network.wildcard.ljust(15), dotted_decimal_to_dotted_binary(network.wildcard)],
+        ["length", network.length, None],
+        ["hosts", network.hosts, None],
+    ]
+    for attribute in attributes:
+        name: str = attribute[0]
+        value_dec: str = attribute[1]
+        value_bin: str = attribute[2]
+        if args.binary:
+            print(name.ljust(10), ":", value_dec.ljust(15), value_bin)
+        else:
+            print(name.ljust(10), ":", value_dec.ljust(15))
 
+def display_subnet_info(addr: str, mask: str, subnet_length: str):
+    supernet = Network(addr, mask)
+    if int(supernet.length) <= int(subnet_length):
+        sys.exit(f"error: network overlap (/{subnet_length} is greater than {supernet.length})")
+    for i in range(int(subnet_length) - int(supernet.length)):
+        subnet = Network(addr)
+        print(f"subnet 1: ")
 
-class Zbob():
-    def uwu(parametre_sympa: Network):
-        parametre_sympa.mask
 
 def main():
 
-    addr = re.match(REGEX_IPADDR, args.network).group(1)
-    mask = re.match(REGEX_IPADDR, args.network).group(2)
-    subnet = re.match(REGEX_SUBNET, args.subnet)
-
-    if not addr:
+    try:
+        addr = re.match(REGEX_IPADDR, args.network).group(1)
+        mask = re.match(REGEX_IPADDR, args.network).group(2)
+        if not mask:
+            mask = DEFAULT_NETWORK_MASK
+    except:
         sys.exit(f"error: invalid value: {args.network}")
+    
+    try:
+        subnet = re.match(REGEX_SUBNET, args.subnet).group(1)
+    except:
+        sys.exit(f"error: invalid value: {args.subnet}")
+    
+    # after this point, expect valid inputs for addr, mask and subnet
+    # default: addr:"192.168.1.1", mask:"24", subnet:None
 
-    if not mask:
-        mask = "24"
+    print("---")
+    print(f"results for {addr}/{mask}")
+    print("---")
 
-    network = Network(addr, mask) # default: 192.168.1.1/24
+    display_network_info(addr, mask) 
+    if subnet:
+        display_subnet_info(addr, mask, subnet)
 
-    print(network.__dict__)
-    print("true", network.belongs_to("192.168.1.0", cidr_to_dotted_decimal("23")))
-    print("true", network.belongs_to("192.168.1.0", cidr_to_dotted_decimal("24")))
-    print("false", network.belongs_to("192.168.1.0", cidr_to_dotted_decimal("25")))
-
-    # print(f"Address\t{...}\t{...}")
-    # print(f"Netmask\t{...}\t{...}")
-    # print(f"Wildcard\t{...}\t{...}")
-    # print(f"Network\t{...}\t{...}")
-    # print(f"Broadcast\t{...}\t{...}")
-    # print(f"HostMin\t{...}\t{...}")
-    # print(f"HostMax\t{...}\t{...}")
-    # print(f"Hosts/Net\t{...}\t{...}")
     sys.exit(0)
 
 if __name__ == "__main__":
     global args
     parser = argparse.ArgumentParser()
-    parser.add_argument("network", nargs='?', type=str, default="192.168.1.1/24")
+    parser.add_argument("network", nargs='?', type=str, default=f"{DEFAULT_NETWORK_ADDR}/{DEFAULT_NETWORK_MASK}")
     parser.add_argument("subnet", nargs='?', type=str, default="")
+    parser.add_argument("-b", "--binary", action="store_true")
     args = parser.parse_args()
     main()
