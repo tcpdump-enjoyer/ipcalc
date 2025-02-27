@@ -4,6 +4,7 @@
 
 DEFAULT_NETWORK_ADDR = "192.168.1.1"
 DEFAULT_NETWORK_MASK = "24"
+DEFAULT_HIDDEN_ATTRIBUTES = ["min", "max", "broadcast", "wildcard"]
 
 import argparse
 import re
@@ -12,7 +13,7 @@ import sys
 # matches: 192.168.1.1 or 192.168.1.1/24 or 192.168.1.0/255.255.255.0
 # group 1: 192.168.1.1
 # group 2: 24 or 255.255.255.0
-REGEX_IPADDR = "^((?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2}))(?:\/((?:3[0-2]|[12]\d|\d)|(?:(?:(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})))))?$"
+REGEX_NETWORK = "^((?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2}))(?:\/((?:3[0-2]|[12]\d|\d)|(?:(?:(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})))))?$"
 
 # matches: 24 or 255.255.255.0
 REGEX_SUBNET = "^((?:3[0-2]|[12]\d|\d)|(?:(?:(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2}))))$"
@@ -214,6 +215,7 @@ class Network():
         else:
             return False
         
+        
 def display_network_info(addr: str, mask: str):
     network = Network(addr, mask)
     attributes = [
@@ -228,6 +230,8 @@ def display_network_info(addr: str, mask: str):
     ]
     for attribute in attributes:
         name: str = attribute[0]
+        if not args.all and name in DEFAULT_HIDDEN_ATTRIBUTES:
+            continue
         value_dec: str = attribute[1]
         value_bin: str = attribute[2]
         if args.binary:
@@ -236,47 +240,68 @@ def display_network_info(addr: str, mask: str):
             print(name.ljust(10), ":", value_dec.ljust(15))
 
 def display_subnet_info(addr: str, mask: str, subnet_length: str):
-    supernet = Network(addr, mask)
-    if int(supernet.length) <= int(subnet_length):
-        sys.exit(f"error: network overlap (/{subnet_length} is greater than {supernet.length})")
-    for i in range(int(subnet_length) - int(supernet.length)):
-        subnet = Network(addr)
-        print(f"subnet 1: ")
+    network = Network(addr, mask)
+    subnet = Network(addr, subnet_length)
+    for i in range(2 ** (int(subnet_length) - int(network.length))):
+        print(f"subnet {i+1}: {subnet.address}/{subnet.length}")
+        if args.all:
+            display_network_info(subnet.address, subnet.length)
+        # next_subnet = Network(addr)
+        hops = [1, 128, 64, 32, 16, 8, 4, 2][subnet_length % 8]
+        byte = ...
 
 
 def main():
 
     try:
-        addr = re.match(REGEX_IPADDR, args.network).group(1)
-        mask = re.match(REGEX_IPADDR, args.network).group(2)
+        addr = re.match(REGEX_NETWORK, args.network).group(1)
+        mask = re.match(REGEX_NETWORK, args.network).group(2)
         if not mask:
             mask = DEFAULT_NETWORK_MASK
     except:
-        sys.exit(f"error: invalid value: {args.network}")
+        sys.exit(f"error: invalid value for 'network': {args.network}")
     
-    try:
-        subnet = re.match(REGEX_SUBNET, args.subnet).group(1)
-    except:
-        sys.exit(f"error: invalid value: {args.subnet}")
+    if args.prefixlength:
+        try:
+            prefixlength = re.match(REGEX_SUBNET, args.prefixlength).group(1)
+        except:
+            sys.exit(f"error: invalid value for 'prefixlength': {args.prefixlength}")
+    else:
+        prefixlength = None
     
-    # after this point, expect valid inputs for addr, mask and subnet
-    # default: addr:"192.168.1.1", mask:"24", subnet:None
+    # after this point, expect valid inputs for addr, mask and prefixlength
+    # default: addr:"192.168.1.1", mask:"24", prefixlength:None
 
     print("---")
     print(f"results for {addr}/{mask}")
     print("---")
 
-    display_network_info(addr, mask) 
-    if subnet:
-        display_subnet_info(addr, mask, subnet)
+    display_network_info(addr, mask)
+
+    if prefixlength:
+        if re.match(REGEX_NETMASK_DOTTED_DECIMAL, prefixlength):
+            prefixlength = dotted_decimal_to_cidr(prefixlength)
+        if re.match(REGEX_NETMASK_DOTTED_DECIMAL, mask):
+            mask = dotted_decimal_to_cidr(mask)
+        if prefixlength and int(mask) == int(prefixlength):
+            sys.exit(f"error: network overlap: subnet is the same length as supernet")
+        elif prefixlength and int(mask) > int(prefixlength):
+            # nth: handle supernets
+            #print("---")
+            #print(f"supernet: {addr}/{mask}")
+            #print("---")
+            sys.exit(f"error: network overlap: subnet length (/{subnet_length}) is greater than supernet length (/{supernet.length})")
+        elif prefixlength and int(mask) < int(prefixlength):
+            display_subnet_info(addr, mask, prefixlength)
 
     sys.exit(0)
 
 if __name__ == "__main__":
     global args
     parser = argparse.ArgumentParser()
-    parser.add_argument("network", nargs='?', type=str, default=f"{DEFAULT_NETWORK_ADDR}/{DEFAULT_NETWORK_MASK}")
-    parser.add_argument("subnet", nargs='?', type=str, default="")
+    parser.add_argument("network", metavar="addr[/mask]", nargs='?', type=str, default=f"{DEFAULT_NETWORK_ADDR}/{DEFAULT_NETWORK_MASK}")
+    parser.add_argument("prefixlength", metavar="supernet|subnet", nargs='?', type=str, default=None)
     parser.add_argument("-b", "--binary", action="store_true")
+    parser.add_argument("-a", "--all", action="store_true")
     args = parser.parse_args()
     main()
