@@ -339,8 +339,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("network", metavar="addr[/mask]", nargs='?', type=str, default=f"{DEFAULT_NETWORK_ADDR}/{DEFAULT_NETWORK_MASK}")
     parser.add_argument("prefixlength", metavar="supernet|subnet", nargs='?', type=str, default=None)
+    parser.add_argument("-a", "--all", action="store_true", help="show hidden attributes")
     parser.add_argument("-b", "--binary", action="store_true", help="show binary notation")
-    parser.add_argument("-a", "--all", action="store_true", help="show all informations")
     
     global args
     args = parser.parse_args()
