@@ -137,13 +137,13 @@ usage      : Private use (RFC1918)
 When `-a, --all` is omitted, only few network attributes are displayed :
 - address -- network address or ID  
 - mask -- network mask  
-- length -- network mask (CIDR notation, see RFC4632)  
+- length -- network mask (CIDR notation, see [RFC4632](https://datatracker.ietf.org/doc/html/rfc4632))  
 - (optional) wildcard -- inverted network mask  
 - (optional) min -- lowest usable IP address  
 - (optional) max -- highest usable IP address  
 - (optional) broadcast -- broadcast address  
 - hosts -- maximum number of addressable hosts  
-- (optional) usage -- see https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
+- (optional) usage -- see [IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)
 
 This can be changed by modifying `DEFAULT_HIDDEN_ATTRIBUTES` :
 
