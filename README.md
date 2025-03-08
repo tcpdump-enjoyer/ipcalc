@@ -132,6 +132,37 @@ usage      : Private use (RFC1918)
     usage      : Private use (RFC1918)
 ```
 
+## Customize
+
+When `-a, --all` is omitted, only few network attributes are displayed :
+- address -- network address or ID  
+- mask -- network mask  
+- length -- network mask (CIDR notation, see RFC4632)  
+- (optional) wildcard -- inverted network mask  
+- (optional) min -- lowest usable IP address  
+- (optional) max -- highest usable IP address  
+- (optional) broadcast -- broadcast address  
+- hosts -- maximum number of addressable hosts  
+- (optional) usage -- see https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
+
+This can be changed by modifying `DEFAULT_HIDDEN_ATTRIBUTES` :
+
+```
+DEFAULT_HIDDEN_ATTRIBUTES = ["wildcard", "usage"]
+---
+
+> python3 ipcalc.py 192.168.1.1/255.255.255.0    
+
+192.168.1.0/24
+address    : 192.168.1.0    
+min        : 192.168.1.1    
+max        : 192.168.1.254  
+broadcast  : 192.168.1.255  
+mask       : 255.255.255.0  
+length     : 24             
+hosts      : 254            
+```
+
 ## Roadmap
 
 - [x] IPv4 support
