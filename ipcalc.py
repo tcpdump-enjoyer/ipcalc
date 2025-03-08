@@ -252,10 +252,11 @@ class Network():
             return False
         
         
-def display_network_info(network: Network):
+def display_network_info(network: Network, indent=False):
     """
     Display network information. Optional attributes are hidden unless `args.all` is `True`.
     """
+    indent = " " * 4 if indent else ""
     attributes = [
         ["address", network.address.ljust(15), dotted_decimal_to_dotted_binary(network.address)],
         ["min", network.min.ljust(15), dotted_decimal_to_dotted_binary(network.min)], # optional
@@ -280,11 +281,11 @@ def display_network_info(network: Network):
         if args.binary:
             if name in ["length", "hosts", "usage"]:
                 # no binary values for those attributes
-                print(name.ljust(10), ":", value_dec.ljust(15))
+                print(indent + name.ljust(10), ":", value_dec.ljust(15))
             else:
-                print(name.ljust(10), ":", value_dec.ljust(15), value_bin)
+                print(indent + name.ljust(10), ":", value_dec.ljust(15), value_bin)
         else:
-            print(name.ljust(10), ":", value_dec.ljust(15))
+            print(indent + name.ljust(10), ":", value_dec.ljust(15))
 
 
 def display_supernet_info(network: Network, supernet_length: str):
@@ -292,27 +293,27 @@ def display_supernet_info(network: Network, supernet_length: str):
     Show informations for supernet of length `supernet_length`.
     """
     supernet = Network(network.address, supernet_length)
-    print("---")
     print(f"{supernet.address}/{supernet_length}")
-    print(f"└─ {network.address}/{network.length}")
     display_network_info(supernet)
+    print(f"└── {network.address}/{network.length}")
+    display_network_info(network, indent=True)
     
 
 def display_subnet_info(network: Network, subnet_length: str):
     """
     Show all subnets of length `subnet_length`.
     """
+    print(f"{network.address}/{network.length}")
+    display_network_info(network)
     next_subnet = Network(network.address, subnet_length)
     count = 2 ** (int(subnet_length) - int(network.length))
-    print("---")
-    print(f"{network.address}/{network.length}")
     for i in range(count):
         if i == count-1:
-            print(f"└─ {i+1}: {next_subnet.address}/{next_subnet.length}")
+            print(f"└── {i+1}: {next_subnet.address}/{next_subnet.length}")
         else:
-            print(f"├─ {i+1}: {next_subnet.address}/{next_subnet.length}")
+            print(f"├── {i+1}: {next_subnet.address}/{next_subnet.length}")
         if args.all:
-            display_network_info(next_subnet)
+            display_network_info(next_subnet, indent=True)
         hops = [1, 128, 64, 32, 16, 8, 4, 2][int(subnet_length) % 8]
         if 0 < int(next_subnet.length) and int(next_subnet.length) <= 8:
             byte_index = 0
@@ -366,22 +367,24 @@ def main():
 
     network = Network(addr, mask)
 
-    display_network_info(network)
+    # print(f"{network.address}/{network.length}")
+    # display_network_info(network)
 
     if prefixlength:
-
         if re.match(REGEX_NETMASK_DOTTED_DECIMAL, prefixlength):
             prefixlength = dotted_decimal_to_cidr(prefixlength)
         if re.match(REGEX_NETMASK_DOTTED_DECIMAL, mask):
             mask = dotted_decimal_to_cidr(mask)
-
         if prefixlength and int(mask) == int(prefixlength):
             sys.exit(f"error: network overlap: subnet is the same length as supernet")
-
         elif prefixlength and int(mask) > int(prefixlength):
             display_supernet_info(network, prefixlength)
         elif prefixlength and int(mask) < int(prefixlength):
             display_subnet_info(network, prefixlength)
+    else:
+        print(f"{network.address}/{network.length}")
+        display_network_info(network)
+
 
     sys.exit(0)
 
