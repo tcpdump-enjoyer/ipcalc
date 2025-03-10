@@ -367,9 +367,6 @@ def main():
 
     network = Network(addr, mask)
 
-    # print(f"{network.address}/{network.length}")
-    # display_network_info(network)
-
     if prefixlength:
         if re.match(REGEX_NETMASK_DOTTED_DECIMAL, prefixlength):
             prefixlength = dotted_decimal_to_cidr(prefixlength)
