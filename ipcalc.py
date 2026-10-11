@@ -114,6 +114,8 @@ def network_min(address: str, subnet_mask: str, binary: bool = False) -> str:
     Return the first network address given `address` and `subnet_mask` in dotted decimal notation. Set binary to `True` to output result as a bit string instead of using the dotted decimal notation.  
     Example: `"192.168.1.0/24"` => `"192.168.1.1"`
     """
+    if subnet_mask == "255.255.255.255":
+        return address
     result = network_address(address, subnet_mask, binary=True)[:-1] + "1"
     return result if binary else binary_to_dotted_decimal(result)
 
@@ -123,6 +125,8 @@ def network_max(address: str, subnet_mask: str, binary: bool = False) -> str:
     Return the last network address given `address` and `subnet_mask` in dotted decimal notation. Set binary to `True` to output result as a bit string instead of using the dotted decimal notation.  
     Example: `"192.168.1.0/24"` => `"192.168.1.254"`
     """
+    if subnet_mask == "255.255.255.255":
+        return address
     result = network_broadcast(address, subnet_mask, binary=True)[:-1] + "0"
     return result if binary else binary_to_dotted_decimal(result)
 
@@ -347,8 +351,8 @@ def main():
     args = parser.parse_args()
 
     try:
-        addr = re.match(REGEX_NETWORK, args.network).group(1)
-        mask = re.match(REGEX_NETWORK, args.network).group(2)
+        addr = re.match(REGEX_NETWORK, args.network).group(1) # type: ignore
+        mask = re.match(REGEX_NETWORK, args.network).group(2) # type: ignore
         if not mask:
             mask = DEFAULT_NETWORK_MASK
     except:
@@ -356,7 +360,7 @@ def main():
     
     if args.prefixlength:
         try:
-            prefixlength = re.match(REGEX_SUBNET, args.prefixlength).group(1)
+            prefixlength = re.match(REGEX_SUBNET, args.prefixlength).group(1) # type: ignore
         except:
             sys.exit(f"error: invalid value for 'prefixlength': {args.prefixlength}")
     else:
