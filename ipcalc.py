@@ -2,7 +2,17 @@
 
 DEFAULT_NETWORK_ADDR = "192.168.1.1"
 DEFAULT_NETWORK_MASK = "24"
-DEFAULT_HIDDEN_ATTRIBUTES = ["min", "max", "broadcast", "wildcard", "usage"]
+DEFAULT_ATTRIBUTES = {
+        "address": 1,   # address    : 192.168.1.0
+        "min": 0,       # min        : 192.168.1.1
+        "max": 0,       # max        : 192.168.1.254
+        "broadcast": 0, # broadcast  : 192.168.1.255
+        "mask": 1,      # mask       : 255.255.255.0
+        "wildcard": 0,  # wildcard   : 0.0.0.255
+        "length": 1,    # length     : 24
+        "hosts": 1,     # hosts      : 254
+        "usage": 0,     # usage      : Private use (RFC1918)
+}
 
 import argparse
 import re
@@ -258,38 +268,30 @@ class Network():
         
 def display_network_info(network: Network, indent=False):
     """
-    Display network information. Optional attributes are hidden unless `args.all` is `True`.
+    Display network information. Not all attributes are shown unless `args.all` is `True`.
     """
     indent = " " * 4 if indent else ""
     attributes = [
         ["address", network.address.ljust(15), dotted_decimal_to_dotted_binary(network.address)],
-        ["min", network.min.ljust(15), dotted_decimal_to_dotted_binary(network.min)], # optional
-        ["max", network.max.ljust(15), dotted_decimal_to_dotted_binary(network.max)], # optional
-        ["broadcast", network.broadcast.ljust(15), dotted_decimal_to_dotted_binary(network.broadcast)], # optional
+        ["min", network.min.ljust(15), dotted_decimal_to_dotted_binary(network.min)],
+        ["max", network.max.ljust(15), dotted_decimal_to_dotted_binary(network.max)],
+        ["broadcast", network.broadcast.ljust(15), dotted_decimal_to_dotted_binary(network.broadcast)],
         ["mask", network.mask.ljust(15), dotted_decimal_to_dotted_binary(network.mask)],
-        ["wildcard", network.wildcard.ljust(15), dotted_decimal_to_dotted_binary(network.wildcard)], # optional
-        ["length", network.length, None],
-        ["hosts", network.hosts, None],
-        ["usage", network.usage, None], # optional
+        ["wildcard", network.wildcard.ljust(15), dotted_decimal_to_dotted_binary(network.wildcard)],
+        ["length", network.length, ""],
+        ["hosts", network.hosts, ""],
+        ["usage", network.usage, ""],
     ]
     for attribute in attributes:
-        name: str = attribute[0]
-        if not args.all and name in DEFAULT_HIDDEN_ATTRIBUTES:
-            # skip hidden attributes
+        attr_name, value, value_bin = attribute
+        if not args.all and DEFAULT_ATTRIBUTES[attr_name] == 0: # ignore unwanted attributes, unless --all is set
             continue
-        value_dec: str = attribute[1]
-        value_bin: str = attribute[2]
-        if not value_dec:
-            # skip "usage" attribute (among others) if not set
+        if attr_name == "usage" and value == None: # most addresses have no special use
             continue
         if args.binary:
-            if name in ["length", "hosts", "usage"]:
-                # no binary values for those attributes
-                print(indent + name.ljust(10), ":", value_dec.ljust(15))
-            else:
-                print(indent + name.ljust(10), ":", value_dec.ljust(15), value_bin)
+            print(f"{indent} {attr_name.ljust(10)} : {value.ljust(15)}\t{value_bin}")
         else:
-            print(indent + name.ljust(10), ":", value_dec.ljust(15))
+            print(f"{indent} {attr_name.ljust(10)} : {value.ljust(15)}")
 
 
 def display_supernet_info(network: Network, supernet_length: str):
